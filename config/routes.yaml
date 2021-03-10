@@ -1,0 +1,3 @@
+index:
+  path: /starships
+  controller: App\Controller\Controller::fetchStarships
