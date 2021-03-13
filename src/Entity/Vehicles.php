@@ -92,6 +92,16 @@ class Vehicles
      */
     private $edited;
 
+    /**
+     * @ORM\Column(type="integer", nullable=true)
+     */
+    private $count;
+
+    /**
+     * @ORM\Column(type="string", length=255)
+     */
+    private $url;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -273,6 +283,30 @@ class Vehicles
     public function setEdited(string $edited): self
     {
         $this->edited = $edited;
+
+        return $this;
+    }
+
+    public function getCount(): ?int
+    {
+        return $this->count;
+    }
+
+    public function setCount(?int $count): self
+    {
+        $this->count = $count;
+
+        return $this;
+    }
+
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    public function setUrl(string $url): self
+    {
+        $this->url = $url;
 
         return $this;
     }

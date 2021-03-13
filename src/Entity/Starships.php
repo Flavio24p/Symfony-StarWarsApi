@@ -107,6 +107,11 @@ class Starships
      */
     private $pilots = [];
 
+    /**
+     * @ORM\Column(type="integer", nullable=true)
+     */
+    private $count;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -324,6 +329,18 @@ class Starships
     public function setPilots(array $pilots): self
     {
         $this->pilots = $pilots;
+
+        return $this;
+    }
+
+    public function getCount(): ?int
+    {
+        return $this->count;
+    }
+
+    public function setCount(?int $count): self
+    {
+        $this->count = $count;
 
         return $this;
     }

@@ -3,8 +3,9 @@
 namespace App\Controller;
 
 use App\Entity\Starships;
-use App\Entity\Vehicles;
+use App\Repository\StarshipsRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -20,7 +21,7 @@ class Controller extends AbstractController
     /**
      * @Route("/starships", name="starships", methods={"GET"})
      */
-    public function fetchStarships(): array
+    public function fetchStarships()
     {
         $response = $this->client->request(
             'GET',
@@ -36,11 +37,12 @@ class Controller extends AbstractController
         $content = $response->toArray();
         // $content = ['id' => 521583, 'name' => 'symfony-docs', ...]
         $result = $content["results"];
-        dump($result);
-        if($result != null){
-            $em = $this->getDoctrine()->getManager();
 
-            foreach($result as $r){
+        if ($result != null) {
+            $em = $this->getDoctrine()->getManager();
+            $countStarships = 0;
+
+            foreach ($result as $r) {
                 $starship = new Starships();
                 $starship->setName($r['name']);
                 $starship->setModel($r['model']);
@@ -60,49 +62,159 @@ class Controller extends AbstractController
                 $starship->setUrl($r['url']);
                 $starship->setCreated($r['created']);
                 $starship->setEdited($r['edited']);
+                $countStarships++;
 
-                dd($starship);
                 $em->persist($starship);
                 $em->flush();
             }
         }
 
-        return $content;
+        return new JsonResponse([
+            'success' => true,
+            'data' => ['Successfully fetched ' . $countStarships . ' Starships!']
+        ]);
     }
 
     /**
-     * @Route("/vehicles", name="vehicles", methods={"GET"})
+     * @Route("/getStarshipsUnits", name="startships_get_units", methods={"GET"})
      */
-    public function fetchVehicles(): array
+    public function getStarships(StarshipsRepository $starshipsRepository)
     {
-        $response = $this->client->request(
-            'GET',
-            'https://swapi.dev/api/vehicles/'
-        );
+        $startshipName = 'Death Star';
+        //search for starship with this name
 
-        $statusCode = $response->getStatusCode();
-        // $statusCode = 200
-        $contentType = $response->getHeaders()['content-type'][0];
-        // $contentType = 'application/json'
-        $content = $response->getContent();
-        // $content = '{"id":521583, "name":"symfony-docs", ...}'
-        $content = $response->toArray();
-        // $content = ['id' => 521583, 'name' => 'symfony-docs', ...]
-        $result = $content["results"];
-        dump($result);
-        if($result != null){
-            $em = $this->getDoctrine()->getManager();
+        $starship = $starshipsRepository->findOneBy(['name' => $startshipName]);
 
-            foreach($result as $r){
-                $vehicles = new Vehicles();
-                $vehicles->setName($r['name']);
-
-                dd($vehicles);
-                $em->persist($vehicles);
-                $em->flush();
-            }
+        if ($starship == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['No Starships were found with this name, please try again!']
+            ]);
         }
 
-        return $content;
+        $units = $starship->getCount();
+
+        return new JsonResponse([
+            'success' => true,
+            'data' => ['Successfully found the starships ' . $startshipName . ' that has:' . $units . ' units']
+        ]);
+    }
+
+    /**
+     * @Route("/setStarshipsUnits", name="startships_set_units")
+     */
+    public function setStarshipUnit(StarshipsRepository $starshipsRepository)
+    {
+        $startshipName = 'Death Star';
+        $units = 10;
+
+        $starship = $starshipsRepository->findOneBy(['name' => $startshipName]);
+
+        if ($starship == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['No Starships were found with this name, please try again!']
+            ]);
+        }
+        $starship->setCount($units);
+
+        $em = $this->getDoctrine()->getManager();
+        $em->persist($starship);
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'data' => ['Successfully updated units for' . $startshipName . ' starships by: ' . $units . ' units']
+        ]);
+    }
+
+    /**
+     * @Route("/starships_increment", name="startships_increment")
+     */
+    public function incrementUnits(StarshipsRepository $starshipsRepository)
+    {
+        $startshipName = 'Death Star';
+        $starship = $starshipsRepository->findOneBy(['name' => $startshipName]);
+
+        //set a number that you want to increment the units by:
+        $incrementBy = 3;
+
+        if ($starship == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['No Starships found with this name, please try again']
+            ]);
+        }
+
+        $units = $starship->getCount();
+        if ($units == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['Number of units for this spaceship is not updated, try again after updating the units number for this spaceship']
+            ]);
+        }
+        $newNrOfUnits = $units + $incrementBy;
+        $starship->setCount($newNrOfUnits);
+
+        $em = $this->getDoctrine()->getManager();
+        $em->persist($starship);
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'data' => ['Successfully increment number of units by: ' . $incrementBy . ' this spacheship now has:' . $newNrOfUnits . ' nr of units!']
+        ]);
+    }
+
+    /**
+     * @Route("/starships_decrement", name="startships_decrement")
+     */
+    public function decrementUnits(StarshipsRepository $starshipsRepository)
+    {
+        $starshipName = 'Death Star';
+        $starship = $starshipsRepository->findOneBy(['name' => $starshipName]);
+
+        //set the value you want to decrement the number of units
+        $decrementBy = 2;
+
+        if ($starship == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['No Starships found with this name, please try again']
+            ]);
+        }
+
+        if ($starship->getCount() == null) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['Number of units for this spaceship is not updated, try again after updating the units number for this spaceship']
+            ]);
+        }
+
+        if ($starship->getCount() == 0) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['Number of units its 0 so it cant be decremented, try again later']
+            ]);
+        }
+
+        $units = $starship->getCount();
+        $newUnits = $units - $decrementBy;
+        if ($newUnits < 0) {
+            return new JsonResponse([
+                'success' => true,
+                'data' => ['Cannot be decremented because the number of units cannot be lower than 0']
+            ]);
+        }
+
+        $starship->setCount($newUnits);
+        $em = $this->getDoctrine()->getManager();
+        $em->persist($starship);
+        $em->flush();
+
+        return new JsonResponse([
+            'success' => true,
+            'data' => ['Successfully decremented nr of units by: ' . $decrementBy . ' now the spaceship has: ' . $newUnits . ' units']
+        ]);
     }
 }
