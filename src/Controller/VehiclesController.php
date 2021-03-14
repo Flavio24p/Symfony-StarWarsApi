@@ -21,7 +21,7 @@ class VehiclesController extends AbstractController
     /**
      * @Route("/vehicles", name="vehicles", methods={"GET"})
      */
-    public function fetchVehicles()
+    public function fetchVehicles(VehiclesRepository $vehiclesRepository)
     {
         $response = $this->client->request(
             'GET',
@@ -38,18 +38,18 @@ class VehiclesController extends AbstractController
         // $content = ['id' => 521583, 'name' => 'symfony-docs', ...]
 
         $result = $content["results"];
-
-        if ($result == null) {
-            return new JsonResponse([
-                'success' => true,
-                'data' => ['Cannot fetch any vehicles because the request is empty']
-            ]);
-        }
+        $count = $content["count"];
 
         $em = $this->getDoctrine()->getManager();
         $nrOfVehiclesFetched = 0;
 
         foreach ($result as $r) {
+            //this query will help avoid dublicating data on Vehicles db table
+            $query = $vehiclesRepository->findOneBy(['url' => $r['url']]);
+            if($query){
+                continue;
+            }
+
             $vehicles = new Vehicles();
             $vehicles->setName($r['name']);
             $vehicles->setModel($r['model']);
@@ -67,6 +67,7 @@ class VehiclesController extends AbstractController
             $vehicles->setCreated($r['created']);
             $vehicles->setEdited($r['edited']);
             $vehicles->setUrl($r['url']);
+            $vehicles->setCount($count);
             $nrOfVehiclesFetched++;
 
             $em->persist($vehicles);
@@ -75,7 +76,8 @@ class VehiclesController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'data' => ['Successfully fetched ' . $nrOfVehiclesFetched . ' from the galaxy into our little system :D']
+            'message' => [$nrOfVehiclesFetched.' fetched vehicles'],
+            'data' => $content
         ]);
     }
 
@@ -89,10 +91,10 @@ class VehiclesController extends AbstractController
 
         $vehicle = $vehiclesRepository->findOneBy(['name' => $vehicleName]);
 
-        if ($vehicle == null) {
+        if (!$vehicle) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['No Vehicle were found with this name, please try again!']
+                'success' => false,
+                'message' => ['No Vehicle were found with this name, please try again!']
             ]);
         }
 
@@ -100,7 +102,8 @@ class VehiclesController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'data' => ['Successfully found the vehicle ' . $vehicleName . ' that has:' . $units . ' units']
+            'message' => ['Successfully found the vehicle ' . $vehicleName . ' that has:' . $units . ' units'],
+            'data' => $units
         ]);
     }
 
@@ -114,10 +117,10 @@ class VehiclesController extends AbstractController
 
         $vehicle = $vehiclesRepository->findOneBy(['name' => $vehicleName]);
 
-        if ($vehicle == null) {
+        if (!$vehicle) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['No Vehicle were found with this name, please try again!']
+                'success' => false,
+                'message' => ['No Vehicle were found with this name, please try again!']
             ]);
         }
         $vehicle->setCount($units);
@@ -128,7 +131,8 @@ class VehiclesController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'data' => ['Successfully updated units for' . $vehicleName . ' vehicle by: ' . $units . ' units']
+            'message' => ['Successfully updated units for' . $vehicleName . ' vehicle by: ' . $units . ' units'],
+            'data' => $vehicle
         ]);
     }
 
@@ -143,20 +147,14 @@ class VehiclesController extends AbstractController
         //set a number that you want to increment the units by:
         $incrementBy = 3;
 
-        if ($vehicle == null) {
+        if (!$vehicle) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['No Vehicle found with this name, please try again']
+                'success' => false,
+                'message' => ['No Vehicle found with this name, please try again']
             ]);
         }
 
         $units = $vehicle->getCount();
-        if ($units == null) {
-            return new JsonResponse([
-                'success' => true,
-                'data' => ['Number of units for this vehicle is not updated, try again after updating the units number for this vehicle']
-            ]);
-        }
         $newNrOfUnits = $units + $incrementBy;
         $vehicle->setCount($newNrOfUnits);
 
@@ -166,7 +164,8 @@ class VehiclesController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'data' => ['Successfully increment number of units by: ' . $incrementBy . ' this vehicle now has:' . $newNrOfUnits . ' nr of units!']
+            'message' => ['Successfully increment number of units by: ' . $incrementBy . ' this vehicle now has:' . $newNrOfUnits . ' nr of units!'],
+            'data' => $vehicle
         ]);
     }
 
@@ -181,24 +180,17 @@ class VehiclesController extends AbstractController
         //set the value you want to decrement the number of units
         $decrementBy = 2;
 
-        if ($vehicle == null) {
+        if (!$vehicle) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['No Vehicle found with this name, please try again']
-            ]);
-        }
-
-        if ($vehicle->getCount() == null) {
-            return new JsonResponse([
-                'success' => true,
-                'data' => ['Number of units for this vehicle is not updated, try again after updating the units number for this vehicle']
+                'success' => false,
+                'message' => ['No Vehicle found with this name, please try again']
             ]);
         }
 
         if ($vehicle->getCount() == 0) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['Number of units its 0 so it cant be decremented, try again later']
+                'success' => false,
+                'message' => ['Number of units its 0 so it cant be decremented, try again later']
             ]);
         }
 
@@ -206,8 +198,8 @@ class VehiclesController extends AbstractController
         $newUnits = $units - $decrementBy;
         if ($newUnits < 0) {
             return new JsonResponse([
-                'success' => true,
-                'data' => ['Cannot be decremented because the number of units cannot be lower than 0']
+                'success' => false,
+                'message' => ['Cannot be decremented because the number of units cannot be lower than 0']
             ]);
         }
 
@@ -218,7 +210,8 @@ class VehiclesController extends AbstractController
 
         return new JsonResponse([
             'success' => true,
-            'data' => ['Successfully decremented nr of units by: ' . $decrementBy . ' now the vehicle has: ' . $newUnits . ' units']
+            'message' => ['Successfully decremented nr of units by: ' . $decrementBy . ' now the vehicle has: ' . $newUnits . ' units'],
+            'data' => $vehicle
         ]);
     }
 }
